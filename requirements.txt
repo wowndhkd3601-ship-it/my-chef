@@ -4,5 +4,3 @@ numpy
 transformers
 scikit-learn
 torch
-yt-dlp
-openai-whisper
