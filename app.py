@@ -4,7 +4,8 @@ import numpy as np
 from transformers import pipeline
 from sklearn.neural_network import MLPClassifier
 
-st.set_page_config(page_title="퀀트 셰프 AI", page_icon="👨‍🍳", layout="wide")
+# 탭 창 이름과 넓은 화면 설정
+st.set_page_config(page_title="AI 퀀트 셰프", page_icon="📈", layout="wide")
 
 @st.cache_resource
 def load_ai():
@@ -24,14 +25,22 @@ def load_ai():
 
 nlp_model, ann_model = load_ai()
 
-st.title("👨‍🍳 똑똑한 퀀트 셰프 (프로 대시보드 - 텍스트 버전)")
-st.write("CEO의 인터뷰나 신년사 기사 내용을 복사해서 아래에 붙여넣어 보세요!")
+# 메인 화면 타이틀 꾸미기
+st.title("👨‍🍳 똑똑한 퀀트 셰프 AI")
+st.markdown("**딥러닝(ANN) 기반 CEO 발언 투자 지표 분석 대시보드**")
+st.markdown("---")
 
-speech_text = st.text_area("📝 CEO 발언 내용 입력", height=150)
+# 🌟 사이드바(화면 왼쪽) 메뉴 만들기 🌟
+with st.sidebar:
+    st.header("⚙️ 컨트롤 패널")
+    st.info("여기에 CEO의 인터뷰나 신년사 기사 내용을 복사해서 붙여넣으세요.")
+    speech_text = st.text_area("📝 발언 내용 입력", height=250)
+    analyze_btn = st.button("🍳 요리 시작 (분석하기)", type="primary", use_container_width=True)
 
-if st.button("🍳 요리 시작 (분석하기)", type="primary"):
+# 메인 화면 분석 로직
+if analyze_btn:
     if not speech_text:
-        st.warning("발언 내용을 입력해주세요!")
+        st.warning("왼쪽 패널에 발언 내용을 먼저 입력해주세요!")
     else:
         with st.spinner("딥러닝 AI가 발언을 분석 중입니다..."):
             words = speech_text.split()
@@ -50,33 +59,36 @@ if st.button("🍳 요리 시작 (분석하기)", type="primary"):
             
             nlp_res = nlp_model(speech_text[:500])[0]
             if nlp_res['label'] == 'positive':
-                nlp_score = 1; nlp_name = "긍정적 (호재)"
+                nlp_score = 1; nlp_name = "🟢 긍정적 (호재)"
             elif nlp_res['label'] == 'negative':
-                nlp_score = -1; nlp_name = "부정적 (악재)"
+                nlp_score = -1; nlp_name = "🔴 부정적 (악재)"
             else:
-                nlp_score = 0; nlp_name = "중립적"
+                nlp_score = 0; nlp_name = "⚪ 중립적"
             
             pred = ann_model.predict([[w_count, uc_ratio, nlp_score, topic]])[0]
             prob = ann_model.predict_proba([[w_count, uc_ratio, nlp_score, topic]])[0]
             conf = prob[1] * 100 if pred == 1 else prob[0] * 100
             
-            # 🌟 화면 출력 디자인 (대시보드)
-            st.markdown("---")
-            st.subheader("📊 AI 셰프의 분석 리포트 (판단 근거)")
+            # 🌟 분석 완료 시 화면에 풍선 날리기 🌟
+            st.balloons()
             
+            st.subheader("📊 AI 셰프의 분석 리포트 (판단 근거)")
             col_a, col_b, col_c = st.columns(3)
             col_a.metric("📌 감지된 핵심 주제", topic_name)
             col_b.metric("📈 금융 AI 감성 평가", nlp_name)
             col_c.metric("🤔 불확실성 어휘 비율", f"{uc_ratio*100:.1f}%")
             
             st.markdown("---")
-            st.subheader("👨‍🍳 최종 투자 레시피")
+            st.subheader("👨‍🍳 딥러닝 최종 투자 레시피")
             
             col1, col2 = st.columns(2)
             if pred == 1:
-                col1.metric("셰프의 예측", "🟢 강력 매수 (상승)")
-                st.info("💡 **셰프의 코멘트:** 감성 평가가 긍정적이고 불확실성 어휘가 적어, 과거 주가 상승 패턴과 매우 일치합니다.")
+                col1.metric("최종 예측 포지션", "🟢 강력 매수 (상승)")
+                st.success("💡 **셰프의 코멘트:** 감성 평가가 긍정적이고 불확실성 어휘가 적어, 과거 주가 상승 패턴과 매우 일치합니다.")
             else:
-                col1.metric("셰프의 예측", "🔴 매도 (하락/관망)")
-                st.warning("💡 **셰프의 코멘트:** 모호한 발언이나 부정적인 뉘앙스가 감지되었습니다. 리스크 관리가 필요합니다.")
+                col1.metric("최종 예측 포지션", "🔴 매도 (하락/관망)")
+                st.error("💡 **셰프의 코멘트:** 모호한 발언이나 부정적인 뉘앙스가 감지되었습니다. 리스크 관리가 필요합니다.")
             col2.metric("예측 확신도", f"{conf:.1f}%")
+else:
+    # 아무것도 입력하지 않았을 때 메인 화면에 띄워줄 안내문
+    st.write("👈 화면 왼쪽의 **'컨트롤 패널'**에 기사 내용을 입력하고 분석을 시작해 보세요!")
