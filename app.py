@@ -47,4 +47,59 @@ if st.button("🍳 요리 시작 (음성 분석하기)", type="primary"):
             
             try:
                 # 1. 귀 (음성 인식)
-                script = stt_model.transcribe(temp_path, language="ko")["
+                script = stt_model.transcribe(temp_path, language="ko")["text"]
+                st.success("대본 추출 완료!")
+                with st.expander("📝 AI가 작성한 전체 대본 보기 (클릭하여 펼치기)"):
+                    st.write(script)
+                
+                # 2. 데이터 분석
+                words = script.split()
+                w_count = len(words)
+                uc_count = sum(1 for w in words if any(x in w for x in ['아마', '가능성', '도전', '불확실', '어렵', '예상', '단기적', '정체', '부족']))
+                uc_ratio = uc_count / w_count if w_count > 0 else 0
+                
+                if any(k in script for k in ['투자', '미래', '비전', 'AI']): 
+                    topic = 1; topic_name = "🚀 미래/투자"
+                elif any(k in script for k in ['비용', '구조조정', '효율']): 
+                    topic = 2; topic_name = "✂️ 비용/구조조정"
+                elif any(k in script for k in ['규제', '위기', '소송']): 
+                    topic = 3; topic_name = "⚠️ 위험/리스크"
+                else: 
+                    topic = 4; topic_name = "🏢 일반 경영"
+                
+                nlp_res = nlp_model(script[:500])[0]
+                if nlp_res['label'] == 'positive':
+                    nlp_score = 1; nlp_name = "긍정적 (호재)"
+                elif nlp_res['label'] == 'negative':
+                    nlp_score = -1; nlp_name = "부정적 (악재)"
+                else:
+                    nlp_score = 0; nlp_name = "중립적"
+                
+                # 3. 뇌 (최종 예측)
+                pred = ann_model.predict([[w_count, uc_ratio, nlp_score, topic]])[0]
+                prob = ann_model.predict_proba([[w_count, uc_ratio, nlp_score, topic]])[0]
+                conf = prob[1] * 100 if pred == 1 else prob[0] * 100
+                
+                # 🌟 화면 출력 디자인 (대시보드)
+                st.markdown("---")
+                st.subheader("📊 AI 셰프의 분석 리포트 (판단 근거)")
+                
+                col_a, col_b, col_c = st.columns(3)
+                col_a.metric("📌 감지된 핵심 주제", topic_name)
+                col_b.metric("📈 금융 AI 감성 평가", nlp_name)
+                col_c.metric("🤔 불확실성 어휘 비율", f"{uc_ratio*100:.1f}%")
+                
+                st.markdown("---")
+                st.subheader("👨‍🍳 최종 투자 레시피")
+                
+                col1, col2 = st.columns(2)
+                if pred == 1:
+                    col1.metric("셰프의 예측", "🟢 강력 매수 (상승)")
+                    st.info("💡 **셰프의 코멘트:** 감성 평가가 긍정적이고 불확실성 어휘가 적어, 과거 주가 상승 패턴과 매우 일치합니다.")
+                else:
+                    col1.metric("셰프의 예측", "🔴 매도 (하락/관망)")
+                    st.warning("💡 **셰프의 코멘트:** 모호한 발언이나 부정적인 뉘앙스가 감지되었습니다. 리스크 관리가 필요합니다.")
+                col2.metric("예측 확신도", f"{conf:.1f}%")
+
+            except Exception as e:
+                st.error(f"오디오 분석 중 오류가 발생했습니다: {e}")
