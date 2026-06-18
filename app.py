@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import yt_dlp
 import whisper
 import os
 from transformers import pipeline
@@ -29,34 +28,33 @@ def load_ai():
     
     return stt_model, nlp_model, ann
 
-st.title("👨‍🍳 똑똑한 퀀트 셰프 (음성 분석 자동화 버전)")
-st.write("유튜브 영상 링크를 넣으면 AI가 대본을 직접 추출해 분석합니다.")
+st.title("👨‍🍳 똑똑한 퀀트 셰프 (음성 파일 분석 버전)")
+st.write("CEO의 인터뷰나 연설 음성 파일(mp3, m4a 등)을 올리면 AI가 직접 듣고 투자 레시피를 짜줍니다.")
 
-with st.spinner("AI 두뇌와 귀를 세팅 중입니다... (처음 1번만 오래 걸려요!)"):
+with st.spinner("AI 두뇌와 귀를 세팅 중입니다..."):
     stt_model, nlp_model, ann_model = load_ai()
 
-youtube_url = st.text_input("🔗 분석할 유튜브 링크 입력")
+# 🌟 유튜브 링크 대신 파일 업로드 창 생성!
+uploaded_file = st.file_uploader("🎙️ 분석할 오디오 파일을 올려주세요", type=['mp3', 'wav', 'm4a', 'mp4'])
 
-if st.button("🍳 요리 시작 (음성 듣고 분석하기)", type="primary"):
-    if not youtube_url:
-        st.warning("유튜브 링크를 입력해주세요!")
+if st.button("🍳 요리 시작 (음성 분석하기)", type="primary"):
+    if uploaded_file is None:
+        st.warning("오디오 파일을 먼저 업로드해주세요!")
     else:
-        with st.spinner("영상을 듣고 대본을 추출 중입니다... (1~2분 소요)"):
-            ydl_opts = {'format': 'bestaudio/best', 'outtmpl': 'temp_audio.%(ext)s', 'quiet': True, 'extractor_args': {'youtube': {'client': ['android']}}}
-            if os.path.exists('temp_audio.webm'): os.remove('temp_audio.webm')
-            if os.path.exists('temp_audio.m4a'): os.remove('temp_audio.m4a')
+        with st.spinner("AI가 음성을 듣고 대본을 작성 중입니다... (잠시만 기다려주세요)"):
+            # 업로드된 파일을 임시로 저장
+            temp_path = "temp_audio_file"
+            with open(temp_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
             
             try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([youtube_url])
+                # Whisper로 음성 -> 텍스트 변환
+                script = stt_model.transcribe(temp_path, language="ko")["text"]
                 
-                audio_file = 'temp_audio.webm' if os.path.exists('temp_audio.webm') else 'temp_audio.m4a'
-                script = stt_model.transcribe(audio_file, language="ko")["text"]
+                st.success("대본 추출 완료!")
+                st.info(f"📝 AI가 들은 내용: {script[:100]}...")
                 
-                st.success("대본 추출 성공!")
-                st.info(f"📝 AI가 들은 내용 일부: {script[:100]}...")
-                
-                # 분석 로직
+                # 데이터 수치화 및 예측
                 words = script.split()
                 w_count = len(words)
                 uc_count = sum(1 for w in words if any(x in w for x in ['아마', '가능성', '도전', '불확실', '어렵', '예상', '단기적', '정체', '부족']))
@@ -82,4 +80,4 @@ if st.button("🍳 요리 시작 (음성 듣고 분석하기)", type="primary"):
                 col2.metric("예측 확신도", f"{conf:.1f}%")
 
             except Exception as e:
-                st.error("유튜브 영상을 가져오지 못했습니다. (서버 차단 또는 잘못된 링크)")
+                st.error(f"오디오 분석 중 오류가 발생했습니다: {e}")
